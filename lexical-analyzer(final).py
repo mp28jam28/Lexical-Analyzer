@@ -1,79 +1,47 @@
-import ply.lex as lex
 import re
-import os
-import sys
 
-# List of token names
-tokens = [
-    'KEYWORD',
-    'SEPARATOR',
-    'IDENTIFIER',
-    'OPERATOR',
-    'NUMBER'
+# Define token specifications in order of priority (longer operators before shorter ones)
+token_specification = [
+    ('COMMENT', r'//.*'),  # Single-line comment
+    ('KEYWORD', r'\b(if|else|return|for|while|do|break|continue)\b'),
+    ('INTEGER', r'\b\d+\b'),
+    ('IDENTIFIER', r'\b[a-zA-Z_]\w*\b'),
+    ('OPERATOR', r'==|>=|<=|!=|>|<|=|\+|-|\*|/'),
+    ('SEPARATOR', r'[\(\)\{\}\[\];,]'),
+    ('WHITESPACE', r'\s+'),
+    ('MISMATCH', r'.'),  # Any other character
 ]
 
-# Reserved Keywords
-reserved = {
-    'if': 'KEYWORD',
-    'else': 'KEYWORD',
-    'while': 'KEYWORD',
-    'return': 'KEYWORD'
-}
+# Combine the regex patterns into a master pattern.
+token_regex = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
+compiled_regex = re.compile(token_regex)
 
-# Regular expression rules for simple tokens
-t_SEPARATOR = r'[()\{\};]'
-t_OPERATOR = r'[\+\-\*/=<>!&|]+'
 
-# Identifier (Variable Names)
-def t_IDENTIFIER(t):
-    r'[a-zA-Z_][a-zA-Z_0-9]*'
-    t.type = reserved.get(t.value, 'IDENTIFIER')  # Check for keywords
-    return t
+def tokenize(code):
+    tokens = []
+    # Scan through the input code using the regex.
+    for mo in compiled_regex.finditer(code):
+        kind = mo.lastgroup
+        value = mo.group(kind)
+        if kind in ('WHITESPACE', 'COMMENT'):
+            # Skip whitespace and comments
+            continue
+        elif kind == 'MISMATCH':
+            raise RuntimeError(f'Unexpected character {value!r}')
+        tokens.append((value, kind))
+    return tokens
 
-# Number (Integer)
-def t_NUMBER(t):
-    r'\d+'
-    t.value = int(t.value)
-    return t
 
-# Ignore whitespace and comments
-t_ignore = ' \t'
-t_ignore_COMMENT = r'//.*'
-
-# Newline tracking
-def t_newline(t):
-    r'\n+'
-    t.lexer.lineno += len(t.value)
-
-# Error handling
-def t_error(t):
-    print(f"Illegal character '{t.value[0]}' at line {t.lineno}")
-    t.lexer.skip(1)
-
-# Build the lexer
-lexer = lex.lex()
-
-# Function to process input file
-def accept_file(filename):
-    if not os.path.exists(filename):
-        print("Error: File not found.")
-        return
-    
-    with open(filename, 'r') as file:
-        data = file.read()
-        lexer.input(data)
-
-# Function to print output tokens
-def print_output():
-    for token in lexer:
-        print(f"{token.value} = {token.type}")
-
-# Main execution
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python lexer.py <filename>")
-        sys.exit(1)
+    # Read the input from a .txt file (change 'input.txt' to your filename)
+    with open('input.txt', 'r') as f:
+        code = f.read()
 
-    input_file = sys.argv[1]
-    accept_file(input_file)
-    print_output()
+    # Tokenize the input code
+    tokens = tokenize(code)
+
+    # Output lexemes and corresponding token types
+    print("Lexeme".ljust(15), "Token")
+    print("-" * 30)
+    for lexeme, token in tokens:
+        print(f"{lexeme.ljust(15)} {token}")
